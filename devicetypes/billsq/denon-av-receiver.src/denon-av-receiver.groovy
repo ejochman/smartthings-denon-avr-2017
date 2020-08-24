@@ -6,6 +6,8 @@ metadata {
         capability "Refresh"
         capability "Sensor"
         capability "Music Player"
+        capability "Audio Mute"
+        capability "Audio Volume"
         //capability "Switch Level"
 
         attribute "phono", "string"
@@ -65,9 +67,13 @@ metadata {
                 attributeState("level", action:"music Player.setLevel")
             }
 
+            tileAttribute ("device.volume", key: "SLIDER_CONTROL") {
+                attributeState("volume", action:"audioVolume.setVolume")
+            }
+
             tileAttribute ("device.mute", key: "MEDIA_MUTED") {
-                attributeState("unmuted", action:"music Player.mute", nextState: "muted")
-                attributeState("muted", action:"music Player.unmute", nextState: "unmuted")
+                attributeState("unmuted", action:"audioMute.mute", nextState: "muted")
+                attributeState("muted", action:"audioMute.unmute", nextState: "unmuted")
             }
 
             tileAttribute("device.trackDescription", key: "MARQUEE") {
@@ -476,11 +482,38 @@ def setLevel(level) {
     }
 
     new physicalgraph.device.HubAction([
-            path: "/goform/formiPhoneAppDirect.xml?MV" + String.format("%02d", level),
+            path: "/goform/formiPhoneAppDirect.xml?MV" + String.format("%02d", level.toInteger()),
             method: "GET",
             headers: [Host: getApiAddress()],
         ]
     )
+}
+
+
+
+def setVolume(volume) {
+    log.debug "Executing setVolume() for ${device.label} volume=${volume}"
+
+    // Volume is send in a format like -50.0.
+    // Minimum is -80.0, maximum at 18.0
+    // Total range is 98
+    def MAX_VOLUME = 18.0
+    def MIN_VOLUME = -80.0
+    
+    // Volume can be set in half values, so round to the closest .5
+    def deviceVolume = (Math.round((volume.toFloat() - 80) * 2) / 2)
+    // Force the value into the acceptable value range for the device (half steps)
+    deviceVolume = Math.min(deviceVolume, MAX_VOLUME)
+    deviceVolume = Math.max(deviceVolume, MIN_VOLUME)
+    log.debug "Setting new volume ${String.format("%.1f", deviceVolume)}"
+ 
+    new physicalgraph.device.HubAction([
+            path: "/goform/formiPhoneAppVolume.xml?1+" + String.format("%.1f", deviceVolume),
+            method: "GET",
+            headers: [Host: getApiAddress()],
+        ]
+    )
+    
 }
 
 def mute() {
@@ -521,6 +554,28 @@ def unmute() {
         headers: [Host: getHostAddress()]
     )
 */
+}
+
+def volumeUp() {
+    log.debug "Executing volumeUp() for ${device.label}"
+
+    new physicalgraph.device.HubAction([
+            path: "/goform/formiPhoneAppDirect.xml?MVUP",
+            method: "GET",
+            headers: [Host: getApiAddress()],
+        ]
+    )
+}
+
+def volumeDown() {
+    log.debug "Executing volumeDown() for ${device.label}"
+
+    new physicalgraph.device.HubAction([
+            path: "/goform/formiPhoneAppDirect.xml?MVDOWN",
+            method: "GET",
+            headers: [Host: getApiAddress()],
+        ]
+    )
 }
 
 def play() {
@@ -965,6 +1020,7 @@ void pollCallback(physicalgraph.device.HubResponse hubResponse) {
             log.trace "Got GetAllZoneVolume zone1=${volume}"
 
             sendEvent(name: "level", value: Math.round(volume.toFloat()))
+            sendEvent(name: "volume", value: volume.toFloat())
         } else {
             log.error "Malformed GetAllZoneVolume response!"
         }
