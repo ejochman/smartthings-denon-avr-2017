@@ -487,6 +487,8 @@ def setLevel(level) {
             headers: [Host: getApiAddress()],
         ]
     )
+    
+    sendEvent(name: "level", value: level.toInteger())
 }
 
 
@@ -501,19 +503,20 @@ def setVolume(volume) {
     def MIN_VOLUME = -80.0
     
     // Volume can be set in half values, so round to the closest .5
-    def deviceVolume = (Math.round((volume.toFloat() - 80) * 2) / 2)
+    def newVolume = (Math.round((volume.toFloat() - 80) * 2) / 2)
     // Force the value into the acceptable value range for the device (half steps)
-    deviceVolume = Math.min(deviceVolume, MAX_VOLUME)
-    deviceVolume = Math.max(deviceVolume, MIN_VOLUME)
-    log.debug "Setting new volume ${String.format("%.1f", deviceVolume)}"
+    newVolume = Math.min(newVolume, MAX_VOLUME)
+    newVolume = Math.max(newVolume, MIN_VOLUME)
+    log.debug "Setting new volume ${String.format("%.1f", newVolume)}"
  
     new physicalgraph.device.HubAction([
-            path: "/goform/formiPhoneAppVolume.xml?1+" + String.format("%.1f", deviceVolume),
+            path: "/goform/formiPhoneAppVolume.xml?1+" + String.format("%.1f", newVolume),
             method: "GET",
             headers: [Host: getApiAddress()],
         ]
     )
     
+    sendEvent(name: "volume", value: newVolume.toFloat())
 }
 
 def mute() {
